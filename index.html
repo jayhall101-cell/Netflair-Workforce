@@ -988,8 +988,8 @@ function rMd() {
 }
 
 // ── BIND ──────────────────────────────────────────────────
+const $=id=>document.getElementById(id);
 function bind() {
-  const $=id=>document.getElementById(id);
   if($('lbtn'))   $('lbtn').onclick=doLogin;
   if($('lpw'))    $('lpw').onkeydown=e=>{if(e.key==='Enter')doLogin();};
   if($('logout')) $('logout').onclick=doLogout;
