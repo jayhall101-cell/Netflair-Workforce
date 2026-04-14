@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Netflair Inventory</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root {
+  --bg:#f8f8f7; --sf:#fff; --sf2:#f1f0ed;
+  --bd:rgba(0,0,0,.12); --bd2:rgba(0,0,0,.22);
+  --tx:#1a1a1a; --mu:#6b6b6b;
+  --ac:#185FA5; --acl:#E6F1FB;
+  --ok-bg:#EAF3DE; --ok-tx:#27500A; --ok-bd:#639922;
+  --wn-bg:#FAEEDA; --wn-tx:#854F0B; --wn-bd:#BA7517;
+  --er-bg:#FCEBEB; --er-tx:#791F1F; --er-bd:#A32D2D;
+  --r:10px; --rs:6px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--tx); font-size: 14px; line-height: 1.5; }
+.app { display: flex; min-height: 100vh; }
+.sb { width: 210px; min-width: 210px; background: var(--sf2); border-right: .5px solid var(--bd); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; overflow-y: auto; }
+.mn { margin-left: 210px; flex: 1; padding: 28px; min-height: 100vh; }
+.logo-a { padding: 14px 16px 12px; border-bottom: .5px solid var(--bd); margin-bottom: 6px; }
+.logo { font-size: 18px; font-weight: 700; } .logo .ac { color: var(--ac); }
+.logo-s { font-size: 11px; color: var(--mu); margin-top: 2px; }
+.nsec { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--mu); padding: 10px 16px 4px; opacity: .6; }
+.ni { display: flex; align-items: center; gap: 9px; padding: 9px 16px; font-size: 13px; cursor: pointer; color: var(--mu); border-left: 2px solid transparent; transition: all .12s; }
+.ni:hover { background: var(--sf); color: var(--tx); }
+.ni.on { border-left-color: var(--ac); color: var(--ac); background: rgba(24,95,165,.07); font-weight: 600; }
+.nbadge { margin-left: auto; font-size: 10px; background: var(--wn-tx); color: #fff; border-radius: 8px; padding: 1px 6px; font-weight: 600; }
+.sf-bot { margin-top: auto; padding: 12px 14px; border-top: .5px solid var(--bd); }
+.urow { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+.av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.av-c { background: var(--acl); color: var(--ac); } .av-a { background: var(--wn-bg); color: var(--wn-tx); }
+.g4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 18px; }
+.g3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 18px; }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.sc { background: var(--sf2); border-radius: var(--rs); padding: 14px 16px; }
+.sc-n { font-size: 22px; font-weight: 700; line-height: 1; }
+.sc-l { font-size: 12px; color: var(--mu); margin-top: 4px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--rs); border: .5px solid var(--bd2); background: transparent; color: var(--tx); font-family: inherit; font-size: 13px; cursor: pointer; font-weight: 500; transition: background .12s; text-decoration: none; }
+.btn:hover { background: var(--sf2); }
+.bb { background: var(--ac); color: #fff; border-color: var(--ac); } .bb:hover { background: #0C447C; }
+.bgn { background: var(--ok-bg); color: var(--ok-tx); border-color: var(--ok-bd); } .bgn:hover { background: #d4ecc4; }
+.brd { background: var(--er-bg); color: var(--er-tx); border-color: var(--er-bd); } .brd:hover { background: #f5d5d5; }
+.bwn { background: var(--wn-bg); color: var(--wn-tx); border-color: var(--wn-bd); } .bwn:hover { background: #f0dfc5; }
+.bfw { width: 100%; justify-content: center; padding: 9px 14px; } .bsm { padding: 5px 10px; font-size: 12px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.b-ok { background: var(--ok-bg); color: var(--ok-tx); } .b-wn { background: var(--wn-bg); color: var(--wn-tx); } .b-er { background: var(--er-bg); color: var(--er-tx); } .b-ac { background: var(--acl); color: var(--ac); } .b-mu { background: var(--sf2); color: var(--mu); }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { text-align: left; font-size: 11px; font-weight: 700; color: var(--mu); padding: 8px 12px; border-bottom: .5px solid var(--bd); text-transform: uppercase; letter-spacing: .5px; }
+.tbl td { padding: 11px 12px; border-bottom: .5px solid var(--bd); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: none; } .tbl tr:hover td { background: var(--sf2); }
+.twrap { background: var(--sf); border: .5px solid var(--bd); border-radius: var(--r); overflow: hidden; overflow-x: auto; }
+input, select, textarea { width: 100%; background: var(--sf2); border: .5px solid var(--bd2); border-radius: var(--rs); padding: 9px 12px; color: var(--tx); font-family: inherit; font-size: 13px; outline: none; }
+input:focus, select:focus, textarea:focus { border-color: var(--ac); box-shadow: 0 0 0 3px rgba(24,95,165,.1); }
+label { display: block; font-size: 12px; font-weight: 600; color: var(--mu); margin-bottom: 5px; }
+.fg { margin-bottom: 13px; }
+.ph { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.ps { font-size: 13px; color: var(--mu); margin-bottom: 20px; }
+.tb { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+.emp { text-align: center; padding: 32px; color: var(--mu); }
+.wbar { background: var(--wn-bg); border: .5px solid var(--wn-bd); border-radius: var(--rs); padding: 10px 14px; font-size: 13px; color: var(--wn-tx); margin-bottom: 16px; font-weight: 500; }
+.ibox { background: var(--sf2); border-radius: var(--rs); padding: 12px 14px; font-size: 13px; margin-bottom: 13px; line-height: 1.6; }
+.card-list { background: var(--sf); border: .5px solid var(--bd); border-radius: var(--rs); padding: 13px 14px; margin-bottom: 9px; display: flex; align-items: center; gap: 12px; }
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.32); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 16px; }
+.modal { background: var(--sf); border: .5px solid var(--bd2); border-radius: var(--r); padding: 28px; width: 480px; max-width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,.15); }
+.mh { font-size: 17px; font-weight: 700; margin-bottom: 4px; } .ms { font-size: 13px; color: var(--mu); margin-bottom: 16px; }
+.mfoot { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+.notif { position: fixed; top: 16px; right: 16px; background: var(--sf); border: .5px solid var(--bd2); border-radius: var(--rs); padding: 11px 16px; font-size: 13px; font-weight: 500; z-index: 999; display: flex; align-items: center; gap: 9px; box-shadow: 0 4px 16px rgba(0,0,0,.12); max-width: 300px; animation: si .2s ease; }
+@keyframes si { from { opacity:0; transform:translateX(10px); } to { opacity:1; transform:translateX(0); } }
+.spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--bd2); border-top-color: var(--ac); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.lp { min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; background: var(--sf2); }
+.mono { font-family: 'SF Mono', 'Fira Mono', monospace; }
+@media (max-width: 700px) { .sb { display: none; } .mn { margin-left: 0; padding: 16px; } .g4 { grid-template-columns: 1fr 1fr; } .g2 { grid-template-columns: 1fr; } .g3 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div id="root"><div class="lp"><div class="spinner"></div><div style="color:var(--mu)">Loading…</div></div></div>
+<script>
+'use strict';
+const { createClient } = supabase;
+const sb = createClient(
+  'https://eiwilltaxbavvskaugdv.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpd2lsbHRheGJhdnZza2F1Z2R2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3OTU0MDcsImV4cCI6MjA5MTM3MTQwN30.b-SQ6v9n4nyrj7aInoTUHUcKSTIPC59SRrAC0aV-j60'
+);
+
+// ── STATE ─────────────────────────────────────────────
+let SES = null, EMP = null;
+let ITEMS = [], ISSUANCES = [], PREQS = [], TECHS = [], ALOG = [];
+let TAB = 'stock', ISF = 'all', PRF = '', SRCH = '', CATF = '', MD = null;
+
+// ── HELPERS ───────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const ini = n => (n || '?').split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
+const isCsr = () => EMP && EMP.role === 'csr';
+const isAdm = () => EMP && EMP.role === 'admin';
+const hasAccess = () => isCsr() || isAdm();
+const gItem = id => ITEMS.find(i => i.id === id);
+const fD = ts => ts ? new Date(ts).toLocaleDateString('en-JM', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const fDT = ts => ts ? new Date(ts).toLocaleString('en-JM', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+const CATS = {
+  network_equipment: 'Network Equip.',
+  tools_field_gear: 'Tools & Gear',
+  vehicles_assets: 'Vehicles & Assets',
+  cat6_cable: 'Cat 6 Cable',
+  fiber_optic: 'Fiber Optic Drop'
+};
+
+const ALAB = {
+  item_added: 'Item Added', item_edited: 'Item Edited', stock_adjusted: 'Stock Adjusted',
+  issued: 'Issued', retrieved: 'Retrieved',
+  purchase_submitted: 'Purchase Requested', purchase_approved: 'Purchase Approved', purchase_denied: 'Purchase Denied'
+};
+
+function catBadge(c) {
+  return '<span class="badge b-mu">' + (CATS[c] || c || '—') + '</span>';
+}
+
+function stBadge(s) {
+  var cls = { pending: 'b-wn', approved: 'b-ok', denied: 'b-er', issued: 'b-ac', retrieved: 'b-ok' }[s] || 'b-mu';
+  return '<span class="badge ' + cls + '">' + (s ? s.charAt(0).toUpperCase() + s.slice(1) : '—') + '</span>';
+}
+
+function notif(msg, t) {
+  document.querySelectorAll('.notif').forEach(function(n) { n.remove(); });
+  var n = document.createElement('div');
+  n.className = 'notif';
+  n.style.borderLeft = '3px solid ' + (t === 'err' ? '#A32D2D' : '#1D9E75');
+  var dot = document.createElement('span');
+  dot.style.cssText = 'width:8px;height:8px;border-radius:50%;flex-shrink:0;background:' + (t === 'err' ? '#A32D2D' : '#1D9E75');
+  n.appendChild(dot);
+  n.appendChild(document.createTextNode(msg));
+  document.body.appendChild(n);
+  setTimeout(function() { n.remove(); }, 3500);
+}
+
+// ── DATA ──────────────────────────────────────────────
+async function loadAll() {
+  var res = await Promise.all([
+    sb.from('inventory_items').select('*').order('name'),
+    sb.from('equipment_issuances').select('*').order('issued_at', { ascending: false }),
+    sb.from('purchase_requests').select('*').order('created_at', { ascending: false }),
+    sb.from('employees').select('id,name,role').eq('role', 'technician').order('name'),
+    sb.from('inventory_log').select('*').order('created_at', { ascending: false }).limit(120)
+  ]);
+  ITEMS = res[0].data || [];
+  ISSUANCES = res[1].data || [];
+  PREQS = res[2].data || [];
+  TECHS = res[3].data || [];
+  ALOG = res[4].data || [];
+}
+
+async function aLog(action, itemId, itemName, refId, qty, by, notes) {
+  try {
+    await sb.from('inventory_log').insert({
+      action: action,
+      item_id: itemId || null,
+      item_name: itemName || null,
+      ref_id: refId || null,
+      quantity_change: qty !== undefined ? qty : null,
+      performed_by: by,
+      notes: notes || null
+    });
+  } catch(e) {}
+}
+
+// ── RENDER ────────────────────────────────────────────
+function render() {
+  document.querySelectorAll('.modal-bg').forEach(function(m) { m.remove(); });
+  if (!SES || !EMP) {
+    $('root').innerHTML = noAccessV('Sign in to Workforce to access this page.', '← Sign in via Workforce', '/');
+    bind();
+    return;
+  }
+  if (!hasAccess()) {
+    $('root').innerHTML = noAccessV('This page is for CSR staff and Admins only.', '← Back to Workforce', '/');
+    bind();
+    return;
+  }
+  $('root').innerHTML = buildLayout();
+  if (MD) {
+    var mb = document.createElement('div');
+    mb.className = 'modal-bg';
+    mb.innerHTML = buildModal();
+    document.body.appendChild(mb);
+    mb.addEventListener('click', function(e) { if (e.target === mb) { MD = null; render(); } });
+  }
+  bind();
+}
+
+function noAccessV(msg, btnTxt, href) {
+  return '<div class="lp"><div style="text-align:center;max-width:320px">' +
+    '<div class="logo" style="font-size:22px;margin-bottom:10px"><span class="ac">NET</span>FLAIR</div>' +
+    '<div style="font-size:14px;font-weight:600;margin-bottom:8px">Inventory System</div>' +
+    '<div style="color:var(--mu);font-size:13px;margin-bottom:20px">' + msg + '</div>' +
+    '<a href="' + href + '" class="btn bb" style="font-size:14px">' + btnTxt + '</a>' +
+    '</div></div>';
+}
+
+function sFoot() {
+  var avCls = isAdm() ? 'av-a' : 'av-c';
+  return '<div class="sf-bot">' +
+    '<div class="urow">' +
+      '<div class="av ' + avCls + '">' + ini(EMP.name) + '</div>' +
+      '<div><div style="font-size:13px;font-weight:600">' + EMP.name.split(' ')[0] + '</div>' +
+      '<div style="font-size:11px;color:var(--mu);text-transform:capitalize">' + EMP.role + '</div></div>' +
+    '</div>' +
+    '<a href="/" class="btn bfw" style="font-size:12px;margin-bottom:6px">← Back to Workforce</a>' +
+    '<button class="btn bfw" id="btnLogout" style="font-size:12px">Sign out</button>' +
+    '</div>';
+}
+
+function buildLayout() {
+  var pend = PREQS.filter(function(r) { return r.status === 'pending'; }).length;
+  var activeIss = ISSUANCES.filter(function(i) { return i.status === 'issued'; }).length;
+  var role = isAdm() ? 'Admin' : 'CSR';
+  var tabs = [
+    { id: 'stock', icon: '📦', label: 'Stock' },
+    { id: 'issue', icon: '🔧', label: 'Issue / Retrieve', cnt: activeIss },
+    { id: 'purchase', icon: '🛒', label: 'Purchase Requests', cnt: pend },
+    { id: 'log', icon: '📜', label: 'Activity Log' }
+  ];
+  var navHtml = tabs.map(function(t) {
+    var cnt = t.cnt ? '<span class="nbadge">' + t.cnt + '</span>' : '';
+    return '<div class="ni' + (TAB === t.id ? ' on' : '') + '" data-tab="' + t.id + '">' +
+      '<span>' + t.icon + '</span><span>' + t.label + '</span>' + cnt + '</div>';
+  }).join('');
+  return '<div class="app">' +
+    '<nav class="sb">' +
+      '<div class="logo-a"><div class="logo"><span class="ac">NET</span>FLAIR</div>' +
+      '<div class="logo-s">Inventory · ' + role + '</div></div>' +
+      '<div class="nsec">Menu</div>' + navHtml + sFoot() +
+    '</nav>' +
+    '<main class="mn">' + buildContent() + '</main>' +
+    '</div>';
+}
+
+function buildContent() {
+  if (TAB === 'stock')    return stockV();
+  if (TAB === 'issue')    return issueV();
+  if (TAB === 'purchase') return purchaseV();
+  if (TAB === 'log')      return logV();
+  return '';
+}
+
+// ── STOCK VIEW ────────────────────────────────────────
+function stockV() {
+  var low = ITEMS.filter(function(i) { return i.quantity <= i.low_stock_threshold; });
+  var totalOut = ISSUANCES.filter(function(i) { return i.status === 'issued'; }).reduce(function(a, i) { return a + i.quantity; }, 0);
+  var fil = ITEMS.filter(function(i) {
+    var ms = SRCH ? i.name.toLowerCase().indexOf(SRCH.toLowerCase()) >= 0 : true;
+    var mc = CATF ? i.category === CATF : true;
+    return ms && mc;
+  });
+
+  var stats = '<div class="g4">' +
+    '<div class="sc"><div class="sc-n" style="color:var(--ac)">' + ITEMS.length + '</div><div class="sc-l">Item types</div></div>' +
+    '<div class="sc"><div class="sc-n" style="color:var(--ok-tx)">' + ITEMS.reduce(function(a,i){return a+i.quantity;},0) + '</div><div class="sc-l">Total in stock</div></div>' +
+    '<div class="sc"><div class="sc-n" style="color:var(--wn-tx)">' + totalOut + '</div><div class="sc-l">Issued out</div></div>' +
+    '<div class="sc"><div class="sc-n" style="color:var(--er-tx)">' + low.length + '</div><div class="sc-l">Low stock</div></div>' +
+    '</div>';
+
+  var lowAlert = '';
+  if (low.length) {
+    lowAlert = '<div class="wbar">⚠️ Low stock: ' + low.slice(0, 5).map(function(i) { return '<strong>' + i.name + '</strong>'; }).join(', ') + (low.length > 5 ? ' +' + (low.length - 5) + ' more' : '') + '</div>';
+  }
+
+  var catOpts = Object.keys(CATS).map(function(v) {
+    return '<option value="' + v + '"' + (CATF === v ? ' selected' : '') + '>' + CATS[v] + '</option>';
+  }).join('');
+
+  var toolbar = '<div class="tb">' +
+    '<input style="width:180px" type="text" placeholder="Search items…" value="' + SRCH + '" id="srchInput">' +
+    '<select style="width:170px" id="catInput"><option value="">All categories</option>' + catOpts + '</select>' +
+    '<button class="btn bb bsm" id="btnAdd">+ Add item</button>' +
+    '</div>';
+
+  var rows = fil.map(function(i) {
+    var isLow = i.quantity <= i.low_stock_threshold;
+    var outQty = ISSUANCES.filter(function(s) { return s.item_id === i.id && s.status === 'issued'; }).reduce(function(a, s) { return a + s.quantity; }, 0);
+    var qColor = isLow ? 'var(--er-tx)' : 'var(--ok-tx)';
+    var statusBdg = isLow ? '<span class="badge b-wn">Low Stock</span>' : '<span class="badge b-ok">OK</span>';
+    var notesHtml = i.notes ? '<br><span style="color:var(--mu);font-size:11px">' + i.notes + '</span>' : '';
+    return '<tr>' +
+      '<td><strong>' + i.name + '</strong>' + notesHtml + '</td>' +
+      '<td class="mono" style="font-size:11px;color:var(--mu)">' + (i.serial_number || '—') + '</td>' +
+      '<td>' + catBadge(i.category) + '</td>' +
+      '<td class="mono" style="font-weight:600;color:' + qColor + '">' + i.quantity + ' <span style="font-weight:400;color:var(--mu);font-size:11px">' + i.unit + '</span></td>' +
+      '<td class="mono" style="color:var(--wn-tx);font-size:12px">' + (outQty > 0 ? outQty + ' ' + i.unit + ' out' : '—') + '</td>' +
+      '<td style="color:var(--mu);font-size:12px">' + (i.location || '—') + '</td>' +
+      '<td>' + statusBdg + '</td>' +
+      '<td><div style="display:flex;gap:5px;flex-wrap:wrap">' +
+        '<button class="btn bsm" data-adj="' + i.id + '">Adjust</button>' +
+        '<button class="btn bsm" data-edit="' + i.id + '">Edit</button>' +
+        '<button class="btn bsm brd" data-del="' + i.id + '" data-dn="' + i.name.replace(/"/g, '&quot;') + '">Del</button>' +
+      '</div></td>' +
+      '</tr>';
+  }).join('');
+
+  return '<div class="ph">Stock</div>' +
+    '<div class="ps">Manage inventory items and quantities</div>' +
+    stats + lowAlert + toolbar +
+    '<div class="twrap"><table class="tbl">' +
+      '<thead><tr><th>Item</th><th>Serial No</th><th>Category</th><th>In Stock</th><th>Issued Out</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="7" class="emp">No items found</td></tr>') + '</tbody>' +
+    '</table></div>';
+}
+
+// ── ISSUE / RETRIEVE VIEW ─────────────────────────────
+function issueV() {
+  var active = ISSUANCES.filter(function(i) { return i.status === 'issued'; });
+  var retrieved = ISSUANCES.filter(function(i) { return i.status === 'retrieved'; });
+  var show = ISF === 'all' ? ISSUANCES : ISSUANCES.filter(function(i) { return i.status === ISF; });
+
+  var stats = '<div class="g3">' +
+    '<div class="sc"><div class="sc-n">' + ISSUANCES.length + '</div><div class="sc-l">Total issuances</div></div>' +
+    '<div class="sc"><div class="sc-n" style="color:var(--wn-tx)">' + active.length + '</div><div class="sc-l">Currently out</div></div>' +
+    '<div class="sc"><div class="sc-n" style="color:var(--ok-tx)">' + retrieved.length + '</div><div class="sc-l">Retrieved</div></div>' +
+    '</div>';
+
+  var filBtns = ['all', 'issued', 'retrieved'].map(function(v) {
+    var lbl = v === 'all' ? 'All' : v === 'issued' ? 'Issued Out' : 'Retrieved';
+    return '<button class="btn bsm ' + (ISF === v ? 'bb' : '') + '" data-isf="' + v + '">' + lbl + '</button>';
+  }).join('');
+
+  var toolbar = '<div class="tb">' + filBtns +
+    '<button class="btn bb bsm" id="btnIssue" style="margin-left:auto">+ Issue equipment</button>' +
+    '</div>';
+
+  var rows = show.map(function(iss) {
+    var item = gItem(iss.item_id);
+    var iname = item ? item.name : '<em style="color:var(--mu)">Deleted</em>';
+    var unit = item ? item.unit : '';
+    var retInfo = iss.status === 'retrieved'
+      ? fD(iss.retrieved_at) + ' · ' + (iss.retrieved_by || '—')
+      : fDT(iss.issued_at);
+    var action = iss.status === 'issued'
+      ? '<button class="btn bsm bwn" data-ret="' + iss.id + '">Retrieve</button>'
+      : '—';
+    return '<tr>' +
+      '<td style="font-size:12px;color:var(--mu)">' + fDT(iss.issued_at) + '</td>' +
+      '<td><strong>' + iname + '</strong></td>' +
+      '<td class="mono">' + iss.quantity + ' ' + unit + '</td>' +
+      '<td class="mono" style="font-size:11px;color:var(--mu)">' + (iss.serial_numbers || '—') + '</td>' +
+      '<td><strong>' + iss.technician + '</strong></td>' +
+      '<td style="font-size:12px;color:var(--mu)">' + (iss.issued_by || '—') + '</td>' +
+      '<td style="font-size:12px;color:var(--mu);max-width:140px">' + (iss.notes || '—') + '</td>' +
+      '<td>' + stBadge(iss.status) + '</td>' +
+      '<td style="font-size:12px;color:var(--mu)">' + retInfo + '</td>' +
+      '<td>' + action + '</td>' +
+      '</tr>';
+  }).join('');
+
+  return '<div class="ph">Issue &amp; Retrieve</div>' +
+    '<div class="ps">Issue equipment to technicians and retrieve it back</div>' +
+    stats + toolbar +
+    '<div class="twrap"><table class="tbl">' +
+      '<thead><tr><th>Date Issued</th><th>Item</th><th>Qty</th><th>Serial Nos</th><th>Technician</th><th>Issued By</th><th>Notes</th><th>Status</th><th>Returned</th><th>Action</th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="9" class="emp">No issuances yet</td></tr>') + '</tbody>' +
+    '</table></div>';
+}
+
+// ── PURCHASE REQUESTS VIEW ────────────────────────────
+function purchaseV() {
+  var pend = PREQS.filter(function(r) { return r.status === 'pending'; }).length;
+  var fil = PRF ? PREQS.filter(function(r) { return r.status === PRF; }) : PREQS;
+
+  var stats = '<div class="g3">' +
+    '<div class="sc"><div class="sc-n" style="color:var(--wn-tx)">' + PREQS.filter(function(r){return r.status==='pending';}).length + '</div><div class="sc-l">Pending</div></div>' +
+    '<div class="sc"><div class="sc-n" style="color:var(--ok-tx)">' + PREQS.filter(function(r){return r.status==='approved';}).length + '</div><div class="sc-l">Approved</div></div>' +
+    '<div class="sc"><div class="sc-n" style="color:var(--er-tx)">' + PREQS.filter(function(r){return r.status==='denied';}).length + '</div><div class="sc-l">Denied</div></div>' +
+    '</div>';
+
+  var statOpts = ['pending', 'approved', 'denied'].map(function(s) {
+    var lbl = s.charAt(0).toUpperCase() + s.slice(1);
+    return '<option value="' + s + '"' + (PRF === s ? ' selected' : '') + '>' + lbl + '</option>';
+  }).join('');
+
+  var toolbar = '<div class="tb">' +
+    '<select style="width:160px" id="prfInput"><option value="">All status</option>' + statOpts + '</select>' +
+    '<button class="btn bb bsm" id="btnPR">+ New request</button>' +
+    '</div>';
+
+  var rows = fil.map(function(r) {
+    var adminCol = '';
+    if (r.status === 'pending') {
+      adminCol = '<div style="display:flex;gap:5px">' +
+        '<button class="btn bsm bgn" data-ap="' + r.id + '">Approve</button>' +
+        '<button class="btn bsm brd" data-dn="' + r.id + '">Deny</button>' +
+        '</div>';
+    } else {
+      adminCol = stBadge(r.status);
+    }
+    var csrCol = stBadge(r.status);
+    var actionCol = isAdm() ? adminCol : csrCol;
+    return '<tr>' +
+      '<td style="font-size:12px;color:var(--mu)">' + fD(r.created_at) + '</td>' +
+      '<td><strong>' + r.item_name + '</strong></td>' +
+      '<td>' + catBadge(r.category || '') + '</td>' +
+      '<td class="mono">' + r.quantity + ' ' + (r.unit || '') + '</td>' +
+      '<td><strong>' + r.requested_by + '</strong></td>' +
+      '<td style="font-size:12px;color:var(--mu);max-width:160px">' + (r.reason || '—') + '</td>' +
+      '<td style="font-size:12px;color:var(--mu)">' + (r.admin_notes || '—') + '</td>' +
+      '<td>' + actionCol + '</td>' +
+      '</tr>';
+  }).join('');
+
+  return '<div class="ph">Purchase Requests</div>' +
+    '<div class="ps">' + pend + ' awaiting ' + (isAdm() ? 'your ' : 'admin ') + 'approval</div>' +
+    stats + toolbar +
+    '<div class="twrap"><table class="tbl">' +
+      '<thead><tr><th>Date</th><th>Item to Buy</th><th>Category</th><th>Qty</th><th>Requested By</th><th>Reason</th><th>Admin Notes</th><th>' + (isAdm() ? 'Action' : 'Status') + '</th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="8" class="emp">No purchase requests yet</td></tr>') + '</tbody>' +
+    '</table></div>';
+}
+
+// ── LOG VIEW ──────────────────────────────────────────
+function logV() {
+  var rows = ALOG.map(function(l) {
+    var qc = l.quantity_change;
+    var qColor = qc > 0 ? 'var(--ok-tx)' : qc < 0 ? 'var(--er-tx)' : 'var(--mu)';
+    var qStr = qc !== null && qc !== undefined ? (qc > 0 ? '+' : '') + qc : '—';
+    return '<tr>' +
+      '<td style="font-size:12px;color:var(--mu);white-space:nowrap">' + fDT(l.created_at) + '</td>' +
+      '<td><span class="badge b-mu">' + (ALAB[l.action] || l.action) + '</span></td>' +
+      '<td><strong>' + (l.item_name || '—') + '</strong></td>' +
+      '<td class="mono" style="font-weight:600;color:' + qColor + '">' + qStr + '</td>' +
+      '<td>' + (l.performed_by || '—') + '</td>' +
+      '<td style="font-size:12px;color:var(--mu)">' + (l.notes || '—') + '</td>' +
+      '</tr>';
+  }).join('');
+
+  return '<div class="ph">Activity Log</div>' +
+    '<div class="ps">Full audit trail of all inventory actions</div>' +
+    '<button class="btn bsm" id="btnRefresh" style="margin-bottom:14px">↻ Refresh</button>' +
+    '<div class="twrap"><table class="tbl">' +
+      '<thead><tr><th>Date/Time</th><th>Action</th><th>Item</th><th>Qty Change</th><th>By</th><th>Notes</th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="6" class="emp">No activity yet</td></tr>') + '</tbody>' +
+    '</table></div>';
+}
+
+// ── MODALS ────────────────────────────────────────────
+function buildModal() {
+  var catOpts = Object.keys(CATS).map(function(v) {
+    return '<option value="' + v + '">' + CATS[v] + '</option>';
+  }).join('');
+
+  if (MD === 'addItem') {
+    return '<div class="modal">' +
+      '<div class="mh">Add Inventory Item</div><div class="ms">New item to stock</div>' +
+      '<div class="fg"><label>Item Name *</label><input id="iiN" type="text" placeholder="e.g. MikroTik hEX Router"></div>' +
+      '<div class="fg"><label>Serial Number</label><input id="iiSN" type="text" placeholder="e.g. SN-2024-001 (leave blank for bulk items)"></div>' +
+      '<div class="g2">' +
+        '<div class="fg"><label>Category *</label><select id="iiC" onchange="syncUnit()"><option value="">Select…</option>' + catOpts + '</select></div>' +
+        '<div class="fg"><label>Unit</label><input id="iiU" type="text" value="pcs" readonly style="background:var(--sf2)"></div>' +
+      '</div>' +
+      '<div class="g2">' +
+        '<div class="fg"><label>Quantity *</label><input id="iiQ" type="number" min="0" placeholder="0"></div>' +
+        '<div class="fg"><label>Low Stock Alert At</label><input id="iiT" type="number" min="0" value="5"></div>' +
+      '</div>' +
+      '<div class="fg"><label>Location</label><input id="iiL" type="text" placeholder="e.g. Main Store"></div>' +
+      '<div class="fg"><label>Notes</label><textarea id="iiNo" rows="2"></textarea></div>' +
+      '<div class="mfoot"><button class="btn" id="mcancel">Cancel</button><button class="btn bb" id="mSave">Save Item</button></div>' +
+      '</div>';
+  }
+
+  if (MD && MD.indexOf('editItem:') === 0) {
+    var i = gItem(MD.split(':')[1]);
+    if (!i) return errModal();
+    var editCatOpts = Object.keys(CATS).map(function(v) {
+      return '<option value="' + v + '"' + (i.category === v ? ' selected' : '') + '>' + CATS[v] + '</option>';
+    }).join('');
+    return '<div class="modal">' +
+      '<div class="mh">Edit Item</div><div class="ms">' + i.name + '</div>' +
+      '<input type="hidden" id="iiEid" value="' + i.id + '">' +
+      '<div class="fg"><label>Item Name *</label><input id="iiN" type="text" value="' + i.name + '"></div>' +
+      '<div class="fg"><label>Serial Number</label><input id="iiSN" type="text" value="' + (i.serial_number || '') + '" placeholder="e.g. SN-2024-001"></div>' +
+      '<div class="g2">' +
+        '<div class="fg"><label>Category *</label><select id="iiC" onchange="syncUnit()"><option value="">Select…</option>' + editCatOpts + '</select></div>' +
+        '<div class="fg"><label>Unit</label><input id="iiU" type="text" value="' + i.unit + '" readonly style="background:var(--sf2)"></div>' +
+      '</div>' +
+      '<div class="g2">' +
+        '<div class="fg"><label>Quantity</label><input id="iiQ" type="number" min="0" value="' + i.quantity + '"></div>' +
+        '<div class="fg"><label>Low Stock Alert At</label><input id="iiT" type="number" min="0" value="' + i.low_stock_threshold + '"></div>' +
+      '</div>' +
+      '<div class="fg"><label>Location</label><input id="iiL" type="text" value="' + (i.location || '') + '"></div>' +
+      '<div class="fg"><label>Notes</label><textarea id="iiNo" rows="2">' + (i.notes || '') + '</textarea></div>' +
+      '<div class="mfoot"><button class="btn" id="mcancel">Cancel</button><button class="btn bb" id="mSave">Save Changes</button></div>' +
+      '</div>';
+  }
+
+  if (MD && MD.indexOf('adjust:') === 0) {
+    var i = gItem(MD.split(':')[1]);
+    if (!i) return errModal();
+    return '<div class="modal">' +
+      '<div class="mh">Adjust Stock</div><div class="ms">' + i.name + '</div>' +
+      '<div class="ibox">Current stock: <strong>' + i.quantity + ' ' + i.unit + '</strong></div>' +
+      '<input type="hidden" id="adjId" value="' + i.id + '">' +
+      '<div class="g2">' +
+        '<div class="fg"><label>Amount</label><input id="adjQ" type="number" min="0" value="' + i.quantity + '"></div>' +
+        '<div class="fg"><label>Action</label><select id="adjT"><option value="set">Set to value</option><option value="add">Add to stock</option><option value="subtract">Remove from stock</option></select></div>' +
+      '</div>' +
+      '<div class="fg"><label>Reason *</label><input id="adjR" type="text" placeholder="e.g. Restock delivery, Damaged, Audit"></div>' +
+      '<div class="mfoot"><button class="btn" id="mcancel">Cancel</button><button class="btn bb" id="adjSave">Save</button></div>' +
+      '</div>';
+  }
+
+  if (MD === 'issue') {
+    var avail = ITEMS.filter(function(i) { return i.quantity > 0; });
+    if (!TECHS.length) return '<div class="modal"><div class="mh">Issue Equipment</div><div class="ms">No technicians found.</div><div class="mfoot"><button class="btn" id="mcancel">Close</button></div></div>';
+    var itemOpts = avail.map(function(i) { return '<option value="' + i.id + '">' + i.name + ' (' + i.quantity + ' ' + i.unit + ' avail.)</option>'; }).join('');
+    var techOpts = TECHS.map(function(t) { return '<option value="' + t.name + '">' + t.name + '</option>'; }).join('');
+    return '<div class="modal">' +
+      '<div class="mh">Issue Equipment</div><div class="ms">Assign to a technician</div>' +
+      '<div class="fg"><label>Item *</label><select id="issItem"><option value="">Select item…</option>' + itemOpts + '</select></div>' +
+      '<div class="g2">' +
+        '<div class="fg"><label>Quantity *</label><input id="issQ" type="number" min="1" value="1"></div>' +
+        '<div class="fg"><label>Technician *</label><select id="issTech"><option value="">Select tech…</option>' + techOpts + '</select></div>' +
+      '</div>' +
+      '<div class="fg"><label>Serial Numbers Issued</label><input id="issSN" type="text" placeholder="e.g. SN-001, SN-002 (optional)"></div>' +
+      '<div class="fg"><label>Notes</label><textarea id="issN" rows="2" placeholder="Job reference, purpose…"></textarea></div>' +
+      '<div class="mfoot"><button class="btn" id="mcancel">Cancel</button><button class="btn bb" id="issSave">Issue Equipment</button></div>' +
+      '</div>';
+  }
+
+  if (MD && MD.indexOf('retrieve:') === 0) {
+    var iss = ISSUANCES.find(function(x) { return x.id === MD.split(':')[1]; });
+    var item = iss ? gItem(iss.item_id) : null;
+    if (!iss) return errModal();
+    return '<div class="modal">' +
+      '<div class="mh">Retrieve Equipment</div><div class="ms">Repossess from ' + iss.technician + '</div>' +
+      '<div class="ibox">' +
+        '<strong>' + (item ? item.name : 'Unknown Item') + '</strong><br>' +
+        'Qty: <strong>' + iss.quantity + ' ' + (item ? item.unit : '') + '</strong> · ' +
+        'Issued: ' + fDT(iss.issued_at) +
+        (iss.serial_numbers ? '<br>Serial Nos: <strong>' + iss.serial_numbers + '</strong>' : '') +
+        (iss.notes ? '<br>Notes: ' + iss.notes : '') +
+      '</div>' +
+      '<input type="hidden" id="retId" value="' + iss.id + '">' +
+      '<div class="fg"><label>Retrieval Notes</label><textarea id="retN" rows="2" placeholder="Condition, reason for return…"></textarea></div>' +
+      '<div class="mfoot"><button class="btn" id="mcancel">Cancel</button><button class="btn bwn" id="retSave">Confirm Retrieval</button></div>' +
+      '</div>';
+  }
+
+  if (MD === 'newPR') {
+    var prCatOpts = Object.keys(CATS).map(function(v) {
+      return '<option value="' + v + '">' + CATS[v] + '</option>';
+    }).join('');
+    return '<div class="modal">' +
+      '<div class="mh">Purchase Request</div><div class="ms">Request admin approval to buy new equipment</div>' +
+      '<div class="fg"><label>Item to Purchase *</label><input id="prN" type="text" placeholder="e.g. MikroTik hEX Router"></div>' +
+      '<div class="g2">' +
+        '<div class="fg"><label>Category</label><select id="prC"><option value="">Select…</option>' + prCatOpts + '</select></div>' +
+        '<div class="fg"><label>Unit</label><select id="prU"><option value="pcs">pcs</option><option value="meters">meters</option></select></div>' +
+      '</div>' +
+      '<div class="fg"><label>Quantity Needed *</label><input id="prQ" type="number" min="1" placeholder="1"></div>' +
+      '<div class="fg"><label>Reason / Justification *</label><textarea id="prR" rows="3" placeholder="Why is this needed?"></textarea></div>' +
+      '<div class="mfoot"><button class="btn" id="mcancel">Cancel</button><button class="btn bb" id="prSave">Submit Request</button></div>' +
+      '</div>';
+  }
+
+  if (MD && MD.indexOf('approve:') === 0) {
+    var r = PREQS.find(function(x) { return x.id === MD.split(':')[1]; });
+    if (!r) return errModal();
+    return '<div class="modal">' +
+      '<div class="mh">✅ Approve Request</div>' +
+      '<div class="ibox" style="background:var(--ok-bg)">' +
+        '<strong>' + r.item_name + '</strong> — ' + r.quantity + ' ' + (r.unit || '') + '<br>' +
+        'By <strong>' + r.requested_by + '</strong><br>' +
+        '<span style="color:var(--mu)">Reason: ' + (r.reason || '—') + '</span>' +
+      '</div>' +
+      '<input type="hidden" id="decId" value="' + r.id + '">' +
+      '<input type="hidden" id="decAct" value="approved">' +
+      '<div class="fg"><label>Notes to CSR (optional)</label><textarea id="decN" rows="2" placeholder="PO number, notes…"></textarea></div>' +
+      '<div class="mfoot"><button class="btn" id="mcancel">Cancel</button><button class="btn bgn" id="decSave">Approve</button></div>' +
+      '</div>';
+  }
+
+  if (MD && MD.indexOf('deny:') === 0) {
+    var r = PREQS.find(function(x) { return x.id === MD.split(':')[1]; });
+    if (!r) return errModal();
+    return '<div class="modal">' +
+      '<div class="mh">❌ Deny Request</div>' +
+      '<div class="ibox" style="background:var(--er-bg)">' +
+        '<strong>' + r.item_name + '</strong> — ' + r.quantity + ' ' + (r.unit || '') + '<br>' +
+        'By <strong>' + r.requested_by + '</strong>' +
+      '</div>' +
+      '<input type="hidden" id="decId" value="' + r.id + '">' +
+      '<input type="hidden" id="decAct" value="denied">' +
+      '<div class="fg"><label>Reason for Denial *</label><textarea id="decN" rows="2" placeholder="Why is this being denied?"></textarea></div>' +
+      '<div class="mfoot"><button class="btn" id="mcancel">Cancel</button><button class="btn brd" id="decSave">Deny</button></div>' +
+      '</div>';
+  }
+
+  return '<div class="modal"><div class="mfoot"><button class="btn" id="mcancel">Close</button></div></div>';
+}
+
+function errModal() {
+  return '<div class="modal"><div style="color:var(--er-tx);padding:8px 0">Record not found.</div><div class="mfoot"><button class="btn" id="mcancel">Close</button></div></div>';
+}
+
+function syncUnit() {
+  var cat = $('iiC') ? $('iiC').value : '';
+  var u = $('iiU');
+  if (u) u.value = (cat === 'cat6_cable' || cat === 'fiber_optic') ? 'meters' : 'pcs';
+}
+
+function closeModal() { MD = null; render(); }
+
+// ── BIND ──────────────────────────────────────────────
+function bind() {
+  // Logout
+  if ($('btnLogout')) $('btnLogout').onclick = async function() { await sb.auth.signOut(); window.location.href = '/'; };
+
+  // Nav tabs
+  document.querySelectorAll('[data-tab]').forEach(function(el) {
+    el.onclick = function() { TAB = el.dataset.tab; render(); };
+  });
+
+  // Modal cancel
+  if ($('mcancel')) $('mcancel').onclick = closeModal;
+
+  // Toolbar inputs
+  if ($('srchInput')) $('srchInput').oninput = function() { SRCH = this.value; render(); };
+  if ($('catInput')) $('catInput').onchange = function() { CATF = this.value; render(); };
+  if ($('prfInput')) $('prfInput').onchange = function() { PRF = this.value; render(); };
+
+  // Issue filter
+  document.querySelectorAll('[data-isf]').forEach(function(b) {
+    b.onclick = function() { ISF = b.dataset.isf; render(); };
+  });
+
+  // Stock buttons
+  if ($('btnAdd')) $('btnAdd').onclick = function() { MD = 'addItem'; render(); };
+  if ($('btnRefresh')) $('btnRefresh').onclick = async function() { await loadAll(); render(); };
+
+  document.querySelectorAll('[data-edit]').forEach(function(b) { b.onclick = function() { MD = 'editItem:' + b.dataset.edit; render(); }; });
+  document.querySelectorAll('[data-adj]').forEach(function(b) { b.onclick = function() { MD = 'adjust:' + b.dataset.adj; render(); }; });
+  document.querySelectorAll('[data-del]').forEach(function(b) { b.onclick = function() { doDelete(b.dataset.del, b.dataset.dn); }; });
+
+  // Issue buttons
+  if ($('btnIssue')) $('btnIssue').onclick = function() { MD = 'issue'; render(); };
+  document.querySelectorAll('[data-ret]').forEach(function(b) { b.onclick = function() { MD = 'retrieve:' + b.dataset.ret; render(); }; });
+
+  // Purchase buttons
+  if ($('btnPR')) $('btnPR').onclick = function() { MD = 'newPR'; render(); };
+  document.querySelectorAll('[data-ap]').forEach(function(b) { b.onclick = function() { MD = 'approve:' + b.dataset.ap; render(); }; });
+  document.querySelectorAll('[data-dn]').forEach(function(b) { b.onclick = function() { MD = 'deny:' + b.dataset.dn; render(); }; });
+
+  // Modal save handlers
+  if ($('mSave')) $('mSave').onclick = doSaveItem;
+  if ($('adjSave')) $('adjSave').onclick = doAdjust;
+  if ($('issSave')) $('issSave').onclick = doIssue;
+  if ($('retSave')) $('retSave').onclick = doRetrieve;
+  if ($('prSave')) $('prSave').onclick = doSubmitPR;
+  if ($('decSave')) $('decSave').onclick = doDecision;
+
+  // Sync unit on category change in open modal
+  if ($('iiC')) $('iiC').onchange = syncUnit;
+}
+
+// ── CRUD ──────────────────────────────────────────────
+async function doSaveItem() {
+  var editId = $('iiEid') ? $('iiEid').value : null;
+  var name = $('iiN').value.trim();
+  var cat = $('iiC').value;
+  var unit = $('iiU').value || 'pcs';
+  var qty = parseFloat($('iiQ').value);
+  var thresh = parseFloat($('iiT').value) || 5;
+  var loc = $('iiL').value.trim();
+  var notes = $('iiNo').value.trim();
+  if (!name || !cat || isNaN(qty)) { notif('Fill in all required fields', 'err'); return; }
+  var sn = $('iiSN') ? $('iiSN').value.trim() : null;
+  var btn = $('mSave'); if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  var payload = { name: name, category: cat, unit: unit, quantity: qty, low_stock_threshold: thresh, location: loc || null, notes: notes || null, serial_number: sn || null, updated_at: new Date().toISOString() };
+  if (editId) {
+    var res = await sb.from('inventory_items').update(payload).eq('id', editId);
+    if (res.error) { notif('Error: ' + res.error.message, 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; } return; }
+    await aLog('item_edited', editId, name, null, null, EMP.name, 'Item updated');
+  } else {
+    payload.created_at = new Date().toISOString();
+    var res = await sb.from('inventory_items').insert(payload).select().single();
+    if (res.error) { notif('Error: ' + res.error.message, 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Save Item'; } return; }
+    await aLog('item_added', res.data ? res.data.id : null, name, null, qty, EMP.name, 'New item added');
+  }
+  MD = null; await loadAll(); notif(editId ? 'Item updated.' : 'Item added.'); render();
+}
+
+async function doAdjust() {
+  var id = $('adjId').value;
+  var newQ = parseFloat($('adjQ').value);
+  var type = $('adjT').value;
+  var reason = $('adjR').value.trim();
+  if (isNaN(newQ) || newQ < 0) { notif('Enter a valid quantity', 'err'); return; }
+  if (!reason) { notif('Please enter a reason', 'err'); return; }
+  var item = gItem(id); if (!item) return;
+  var finalQ, diff;
+  if (type === 'add') { finalQ = item.quantity + newQ; diff = newQ; }
+  else if (type === 'subtract') { finalQ = Math.max(0, item.quantity - newQ); diff = -(Math.min(newQ, item.quantity)); }
+  else { finalQ = newQ; diff = newQ - item.quantity; }
+  var res = await sb.from('inventory_items').update({ quantity: finalQ, updated_at: new Date().toISOString() }).eq('id', id);
+  if (res.error) { notif('Error: ' + res.error.message, 'err'); return; }
+  await aLog('stock_adjusted', id, item.name, null, diff, EMP.name, reason);
+  MD = null; await loadAll(); notif('Stock updated.'); render();
+}
+
+async function doDelete(id, name) {
+  if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+  var res = await sb.from('inventory_items').delete().eq('id', id);
+  if (res.error) { notif('Error: ' + res.error.message, 'err'); return; }
+  await loadAll(); notif('Item deleted.', 'err'); render();
+}
+
+async function doIssue() {
+  var itemId = $('issItem').value;
+  var qty = parseFloat($('issQ').value);
+  var tech = $('issTech').value;
+  var notes = $('issN').value.trim();
+  if (!itemId) { notif('Select an item', 'err'); return; }
+  if (!qty || qty < 1) { notif('Enter a valid quantity', 'err'); return; }
+  if (!tech) { notif('Select a technician', 'err'); return; }
+  var item = gItem(itemId);
+  if (qty > item.quantity) { notif('Only ' + item.quantity + ' ' + item.unit + ' in stock', 'err'); return; }
+  var btn = $('issSave'); if (btn) { btn.disabled = true; btn.textContent = 'Issuing…'; }
+  var serialNos = $('issSN') ? $('issSN').value.trim() : null;
+  var res = await sb.from('equipment_issuances').insert({ item_id: itemId, technician: tech, quantity: qty, issued_by: EMP.name, notes: notes || null, serial_numbers: serialNos || null, status: 'issued' }).select().single();
+  if (res.error) { notif('Error: ' + res.error.message, 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Issue Equipment'; } return; }
+  await sb.from('inventory_items').update({ quantity: item.quantity - qty, updated_at: new Date().toISOString() }).eq('id', itemId);
+  await aLog('issued', itemId, item.name, res.data ? res.data.id : null, -qty, EMP.name, 'Issued to ' + tech + (notes ? ': ' + notes : ''));
+  MD = null; ISF = 'issued'; await loadAll(); notif(qty + ' ' + item.unit + ' issued to ' + tech + '.'); render();
+}
+
+async function doRetrieve() {
+  var id = $('retId').value;
+  var notes = $('retN').value.trim();
+  var iss = ISSUANCES.find(function(x) { return x.id === id; });
+  var item = iss ? gItem(iss.item_id) : null;
+  if (!iss) return;
+  var btn = $('retSave'); if (btn) { btn.disabled = true; btn.textContent = 'Confirming…'; }
+  var res = await sb.from('equipment_issuances').update({ status: 'retrieved', retrieved_by: EMP.name, retrieved_at: new Date().toISOString(), retrieval_notes: notes || null }).eq('id', id);
+  if (res.error) { notif('Error: ' + res.error.message, 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Confirm Retrieval'; } return; }
+  if (item) {
+    await sb.from('inventory_items').update({ quantity: item.quantity + iss.quantity, updated_at: new Date().toISOString() }).eq('id', item.id);
+  }
+  await aLog('retrieved', iss.item_id, item ? item.name : null, id, iss.quantity, EMP.name, 'Retrieved from ' + iss.technician + (notes ? ': ' + notes : ''));
+  MD = null; await loadAll(); notif('Retrieved from ' + iss.technician + '. Stock restored.'); render();
+}
+
+async function doSubmitPR() {
+  var name = $('prN').value.trim();
+  var cat = $('prC').value;
+  var unit = $('prU').value || 'pcs';
+  var qty = parseFloat($('prQ').value);
+  var reason = $('prR').value.trim();
+  if (!name) { notif('Enter item name', 'err'); return; }
+  if (!qty || qty < 1) { notif('Enter a valid quantity', 'err'); return; }
+  if (!reason) { notif('Please provide a reason', 'err'); return; }
+  var btn = $('prSave'); if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+  var res = await sb.from('purchase_requests').insert({ item_name: name, category: cat || null, unit: unit, quantity: qty, reason: reason, requested_by: EMP.name, status: 'pending' }).select().single();
+  if (res.error) { notif('Error: ' + res.error.message, 'err'); if (btn) { btn.disabled = false; btn.textContent = 'Submit Request'; } return; }
+  await aLog('purchase_submitted', null, name, res.data ? res.data.id : null, qty, EMP.name, 'Purchase request submitted');
+  MD = null; await loadAll(); notif('Purchase request submitted.'); render();
+}
+
+async function doDecision() {
+  var id = $('decId').value;
+  var action = $('decAct').value;
+  var notes = $('decN').value.trim();
+  if (action === 'denied' && !notes) { notif('Please enter a reason for denial', 'err'); return; }
+  var r = PREQS.find(function(x) { return x.id === id; });
+  var btn = $('decSave'); if (btn) btn.disabled = true;
+  var res = await sb.from('purchase_requests').update({ status: action, approved_by: EMP.name, admin_notes: notes || null, updated_at: new Date().toISOString() }).eq('id', id);
+  if (res.error) { notif('Error: ' + res.error.message, 'err'); if (btn) btn.disabled = false; return; }
+  await aLog(action === 'approved' ? 'purchase_approved' : 'purchase_denied', null, r ? r.item_name : null, id, null, EMP.name, notes || '');
+  MD = null; await loadAll(); notif(action === 'approved' ? 'Request approved.' : 'Request denied.'); render();
+}
+
+// ── BOOT ──────────────────────────────────────────────
+(async function boot() {
+  try {
+    var r = await sb.auth.getSession();
+    var session = r.data.session;
+    if (session) {
+      SES = session;
+      var er = await sb.from('employees').select('*').eq('auth_id', session.user.id).single();
+      EMP = er.data || null;
+      if (EMP && hasAccess()) await loadAll();
+    }
+  } catch(e) { console.error('Boot error:', e); }
+  render();
+  sb.auth.onAuthStateChange(function(event, session) {
+    if (!session) { SES = null; EMP = null; render(); }
+  });
+})();
+</script>
+</body>
+</html>
