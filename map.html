@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NETFLAIR Network Topology</title>
+<style>
+  html,body{margin:0;padding:0;background:#fdfdfd;font-family:"Verdana","DejaVu Sans",sans-serif;}
+  #bar{display:flex;gap:8px;align-items:center;padding:10px 16px;background:#f0f0ee;border-bottom:1px solid #d8d8d4;flex-wrap:wrap;}
+  #bar b{font-size:14px;color:#222;margin-right:12px;}
+  .vbtn{font-family:inherit;font-size:12px;padding:6px 14px;border:1px solid #9aa7ae;background:#fff;border-radius:4px;cursor:pointer;color:#243b46;}
+  .vbtn.active{background:#2e7d32;color:#fff;border-color:#2e7d32;}
+  .vbtn.active.inet{background:#1565c0;border-color:#1565c0;}
+  .vbtn.active.mgmt{background:#6a1b9a;border-color:#6a1b9a;}
+  #note{font-size:11px;color:#555;margin-left:auto;}
+  #wrap{overflow:auto;}
+  svg{display:block;}
+  .lbl{font-size:12.5px;fill:#111;font-weight:700;}
+  .sub{font-size:11px;fill:#111;}
+  .chip{font-size:13px;font-weight:700;fill:#fff;}
+  .edge-note{font-size:11px;fill:#333;}
+</style>
+</head>
+<body>
+<div id="bar">
+  <b>NETFLAIR Network Topology</b>
+  <button class="vbtn active" id="b-phys" onclick="setView('phys')">Backhaul radio links</button>
+  <button class="vbtn" id="b-inet" onclick="setView('inet')">Internet paths</button>
+  <button class="vbtn" id="b-mgmt" onclick="setView('mgmt')">Management paths (UISP)</button>
+  <span id="live" style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:10px;background:#e0e0e0;color:#444;">connecting…</span>
+  <span id="note">Links learned from live UISP radio associations</span>
+</div>
+<div id="wrap"><svg id="map" width="1500" height="975" viewBox="0 0 1500 975"></svg></div>
+
+<script>
+// ── Sites: name, x, y, breakout (own internet), server (UISP) ──
+const SITES = {
+  "Tulip":        {x:750, y:60,  breakout:true,  server:true, label:"Justin Spence — Tulip", sub:"UISP SERVER"},
+  "Herfa":        {x:750, y:170, label:"Herfa Shaw", sub:"aggregation"},
+  "Marsha":       {x:960, y:290, breakout:true, label:"Marsha McKenzie", sub:"bridge site"},
+  "Match":        {x:330, y:290, breakout:true, label:"Match Resort HUB", sub:""},
+  "LisaTaylor":   {x:330, y:410, label:"Lisa Taylor", sub:"Nonsuch OLT"},
+  "Guyva":        {x:540, y:290, breakout:true, label:"Guyva HUB", sub:""},
+  "Leroy":        {x:540, y:410, breakout:true, label:"Leroy Williams", sub:""},
+
+  "BoundBrook":   {x:1170, y:290, breakout:true, label:"BoundBrook Plaza HUB", sub:"aggregation"},
+  "IyaItes":      {x:1370, y:290, breakout:true, label:"Iya Ites SITE", sub:""},
+  "Fitzroy":      {x:1370, y:410, label:"Fitzroy Thompson", sub:""},
+  "Chung":        {x:1170, y:410, breakout:true, label:"Jason Chung HUB", sub:""},
+  "Astute":       {x:1020, y:530, label:"Astute (office)", sub:""},
+  "Audrey":       {x:1170, y:530, label:"Audrey Smith", sub:""},
+  "Pryce":        {x:1320, y:530, label:"Mr Pryce", sub:""},
+  "Peterkin":     {x:1170, y:650, label:"Mark Peterkin", sub:""},
+  "Yahmar":       {x:1320, y:650, label:"Yahmar Hall", sub:""},
+  "Germaican":    {x:960,  y:410, label:"Germaican Hostel", sub:"Kadian relay"},
+
+  "Tammisha":     {x:750, y:410, breakout:true, label:"Tammisha West HUB", sub:"aggregation"},
+  "MarkBrown":    {x:620, y:530, label:"Mark Brown", sub:""},
+  "Passly":       {x:750, y:530, label:"Passly Site", sub:""},
+  "Shir":         {x:480, y:530, label:"Shir Macfarlane", sub:""},
+
+  "Kincannon":    {x:900,  y:650, label:"Terry Kincannon", sub:"mgmt backbone"},
+  "WainRoad":     {x:1050, y:650, breakout:true, label:"WainRoad HUB", sub:""},
+  "Chatsworth":   {x:1050, y:770, label:"Chatsworth", sub:""},
+  "Debbie":       {x:600,  y:650, breakout:true, label:"Debbie HUB", sub:"fiber breakout"},
+  "Dumfres":      {x:600,  y:770, label:"Dumfres", sub:""},
+  "Burban":       {x:600,  y:890, label:"Burban Hotspot", sub:""},
+  "Hilltop":      {x:900,  y:770, label:"Bellevue HILLTOP", sub:""},
+  "Harry":        {x:900,  y:890, label:"Harry", sub:""},
+  "Braidy":       {x:1050, y:890, label:"Owen Braidy", sub:""},
+  "Bubbles":      {x:1200, y:890, label:"Bubbles", sub:""},
+};
+
+// ── Physical backhaul links (learned from UISP; weak = thin capacity/margin) ──
+const PHYS = [
+  ["Tulip","Herfa","-48 dBm · 546/530 Mbps"],
+  ["Match","Herfa","-53 dBm · 616/593 Mbps"],
+  ["Guyva","Herfa","-52 dBm · 282/240 Mbps"],
+  ["Marsha","Herfa","-60 dBm · 159/324 Mbps"],
+  ["Marsha","BoundBrook","-54 dBm · 225/374 Mbps"],
+  ["Leroy","Guyva","-61 dBm · 369/258 Mbps"],
+  ["LisaTaylor","Match","-52 dBm · 493/215 Mbps"],
+  ["IyaItes","BoundBrook","-42 dBm · 608/515 Mbps"],
+  ["Chung","BoundBrook","-41 dBm · 146/453 Mbps",true],
+  ["Fitzroy","IyaItes","-44 dBm · 143/288 Mbps"],
+  ["Astute","Chung","-56 dBm · 132/213 Mbps"],
+  ["Audrey","Chung","-56 dBm · 186/217 Mbps"],
+  ["Pryce","Chung","-55 dBm · 415/363 Mbps"],
+  ["Peterkin","Audrey","-55 dBm · 452/463 Mbps"],
+  ["Yahmar","Peterkin","-40 dBm · 342/346 Mbps"],
+  ["BoundBrook","Germaican","-57 dBm · 449/505 Mbps"],
+  ["Germaican","Tammisha","-46 dBm · 569/519 Mbps"],
+  ["MarkBrown","Tammisha","-64 dBm · 219/202 Mbps"],
+  ["Passly","Tammisha","-41 dBm · 256/281 Mbps"],
+  ["Shir","Tammisha","-67 dBm · 126/133 Mbps",true],
+  ["Kincannon","Tammisha","-56 dBm · 173/115 Mbps",true],
+  ["Kincannon","WainRoad","-45 dBm · 495/217 Mbps"],
+  ["Hilltop","Kincannon","-53 dBm · 374/393 Mbps"],
+  ["Chatsworth","Kincannon","-56 dBm · 233/302 Mbps"],
+  ["Debbie","Kincannon","-63 dBm · 480/284 Mbps"],
+  ["Dumfres","Debbie","-66 dBm · 91/63 Mbps",true],
+  ["Burban","Dumfres","-75 dBm · 70/30 Mbps",true],
+  ["Harry","Hilltop","-50 dBm · 416/445 Mbps"],
+  ["Braidy","Harry","-54 dBm · 324/320 Mbps"],
+  ["Bubbles","Braidy","-65 dBm · 86/159 Mbps",true],
+];
+
+// ── Dependency overlays (validated site_topology, Jul 2026) ──
+const INET = [ // child -> site it drains through (breakouts excluded)
+  ["Herfa","Tulip"],["LisaTaylor","Match"],["Germaican","Tammisha"],
+  ["Kincannon","WainRoad"],["Hilltop","Kincannon"],["Harry","Hilltop"],
+  ["Braidy","Harry"],["Bubbles","Braidy"],["Chatsworth","Kincannon"],
+  ["Dumfres","Debbie"],["Burban","Dumfres"],["Fitzroy","IyaItes"],
+  ["Astute","Chung"],["Audrey","Chung"],["Pryce","Chung"],
+  ["Peterkin","Audrey"],["Yahmar","Peterkin"],
+  ["MarkBrown","Tammisha"],["Passly","Tammisha"],["Shir","Tammisha"],
+];
+const MGMT = [ // site -> next hop toward Tulip
+  ["Herfa","Tulip"],["Marsha","Herfa"],["BoundBrook","Marsha"],
+  ["Tammisha","Germaican"],["Germaican","BoundBrook"],
+  ["Kincannon","Tammisha"],["WainRoad","Kincannon"],
+  ["Hilltop","Kincannon"],["Harry","Hilltop"],["Braidy","Harry"],["Bubbles","Braidy"],
+  ["Chatsworth","Kincannon"],["Debbie","Kincannon"],["Dumfres","Debbie"],["Burban","Dumfres"],
+  ["IyaItes","BoundBrook"],["Fitzroy","IyaItes"],
+  ["Chung","BoundBrook"],["Astute","Chung"],["Audrey","Chung"],["Pryce","Chung"],
+  ["Peterkin","Audrey"],["Yahmar","Peterkin"],
+  ["Guyva","Herfa"],["Leroy","Guyva"],
+  ["Match","Herfa"],["LisaTaylor","Match"],
+  ["MarkBrown","Tammisha"],["Passly","Tammisha"],["Shir","Tammisha"],
+];
+
+
+
+
+// UISP tower_site_name -> map node key
+const NAMEMAP = {
+  "Justin Spence - Tulip":"Tulip","Herfa Shaw Site":"Herfa","Marsha McKenzie":"Marsha",
+  "Match Resort HUB":"Match","Lisa Taylor SITE":"LisaTaylor","Guyva HUB":"Guyva",
+  "Leroy Williams SITE":"Leroy","BoundBrook Plaza HUB":"BoundBrook","Iya Ites SITE":"IyaItes",
+  "Fitzroy Thompson":"Fitzroy","Jason Chung  HUB":"Chung","Astute Technology Solutions":"Astute",
+  "Audrey Smith Site":"Audrey","Mr Pryce":"Pryce","Mark Peterkin":"Peterkin","Yahmar Hall":"Yahmar",
+  "Germaican Hostel SITE":"Germaican","Tammisha West HUB":"Tammisha","Mark Brown SITE":"MarkBrown",
+  "Passly Site":"Passly","Shir Macfarlane SITE":"Shir","Terry Kincannon SITE":"Kincannon",
+  "WainRoad HUB":"WainRoad","Chatsworth":"Chatsworth","Debbie HUB":"Debbie","Dumfres":"Dumfres",
+  "Burban Hotspot":"Burban","Bellevue HILLTOP ":"Hilltop","Harry":"Harry",
+  "Owen Braidy SITE":"Braidy","Bubbles":"Bubbles"
+};
+const MGMT_PARENT = Object.fromEntries(MGMT.map(([a,b])=>[a,b]));
+
+const svg = document.getElementById('map');
+const NS = "http://www.w3.org/2000/svg";
+function el(t, attrs, parent){ const e=document.createElementNS(NS,t); for(const k in attrs)e.setAttribute(k,attrs[k]); (parent||svg).appendChild(e); return e; }
+
+// defs: arrowheads
+const defs = el('defs',{});
+function marker(id,color){ const m=el('marker',{id,viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"7",markerHeight:"7",orient:"auto-start-reverse"},defs);
+  el('path',{d:"M0 0L10 5L0 10z",fill:color},m); }
+marker('a-inet','#1565c0'); marker('a-mgmt','#6a1b9a');
+
+
+// edge layers
+const gPhys = el('g',{id:'g-phys'});
+const gInet = el('g',{id:'g-inet',visibility:'hidden'});
+const gMgmt = el('g',{id:'g-mgmt',visibility:'hidden'});
+
+function pt(a){ return SITES[a]; }
+function drawLink(g, a, b, opts){
+  const A=pt(a), B=pt(b);
+  const dx=B.x-A.x, dy=B.y-A.y, len=Math.hypot(dx,dy);
+  const ux=dx/len, uy=dy/len;
+  const x1=A.x+ux*30, y1=A.y+uy*30, x2=B.x-ux*30, y2=B.y-uy*30;
+  const l = el('line',{x1,y1,x2,y2,stroke:opts.stroke,'stroke-width':opts.width,
+    ...(opts.dash?{'stroke-dasharray':opts.dash}:{}), ...(opts.marker?{'marker-end':opts.marker}:{})},g);
+  if(opts.title){ const t=el('title',{},l); t.textContent=opts.title; }
+  if(opts.ports){ // PT-style green port squares
+    el('rect',{x:x1-4,y:y1-4,width:8,height:8,fill:'#28c728',stroke:'#0d7a0d','stroke-width':1},g);
+    el('rect',{x:x2-4,y:y2-4,width:8,height:8,fill:'#28c728',stroke:'#0d7a0d','stroke-width':1},g);
+  }
+}
+// physical (black PT lines; amber = weak link)
+for(const [a,b,info,weak] of PHYS)
+  drawLink(gPhys,a,b,{stroke: weak?'#e08900':'#1a1a1a', width: weak?2.5:2, ports:true, title:`${SITES[a].label} ↔ ${SITES[b].label}\n${info}${weak?'\n⚠ weak link':''}`});
+// internet (blue arrows toward the breakout it drains through)
+for(const [a,b] of INET)
+  drawLink(gInet,a,b,{stroke:'#1565c0',width:2.2,marker:'url(#a-inet)',title:`${SITES[a].label} internet drains via ${SITES[b].label}`});
+// management (purple arrows toward Tulip)
+const MGMT_EDGE = {};
+for(const [a,b] of MGMT){
+  const before = gMgmt.childNodes.length;
+  drawLink(gMgmt,a,b,{stroke:'#6a1b9a',width:2,dash:'7 4',marker:'url(#a-mgmt)',title:`${SITES[a].label} → ${SITES[b].label} (toward UISP @ Tulip)`});
+  MGMT_EDGE[a] = gMgmt.childNodes[before];
+}
+
+// nodes (PT router look)
+for(const key in SITES){
+  const s=SITES[key];
+  const g = el('g',{});
+  if(s.server){ // UISP server tower
+    el('rect',{x:s.x-20,y:s.y-26,width:40,height:52,rx:4,fill:'#8fb6c9',stroke:'#33667e','stroke-width':1.5},g);
+    for(let i=0;i<3;i++) el('rect',{x:s.x-13,y:s.y-18+i*14,width:26,height:8,rx:2,fill:'#dcecf3',stroke:'#33667e','stroke-width':0.8},g);
+  } else { // router cylinder
+    el('ellipse',{cx:s.x,cy:s.y+9,rx:26,ry:9,fill:'#6fa4bd',stroke:'#33667e','stroke-width':1.2},g);
+    el('rect',{x:s.x-26,y:s.y-9,width:52,height:18,fill:'#7fb2c9',stroke:'none'},g);
+    el('ellipse',{cx:s.x,cy:s.y-9,rx:26,ry:9,fill:'#a9cddd',stroke:'#33667e','stroke-width':1.2},g);
+    el('path',{d:`M${s.x-14} ${s.y-11}h9m-3-3l3 3-3 3 M${s.x+14} ${s.y-7}h-9m3-3l-3 3 3 3`,stroke:'#25506a','stroke-width':1.6,fill:'none','stroke-linecap':'round'},g);
+    el('line',{x1:s.x-26,y1:s.y+9,x2:s.x-26,y2:s.y-9,stroke:'#33667e','stroke-width':1.2},g);
+    el('line',{x1:s.x+26,y1:s.y+9,x2:s.x+26,y2:s.y-9,stroke:'#33667e','stroke-width':1.2},g);
+  }
+  if(s.breakout){ // green INTERNET chip like PT LAN tags
+    el('rect',{x:s.x+22,y:s.y-34,width:62,height:16,rx:2,fill:'#2e7d32'},g);
+    const t=el('text',{x:s.x+53,y:s.y-22,'text-anchor':'middle',fill:'#fff','font-size':'10px','font-weight':'700'},g);
+    t.textContent='INTERNET';
+  }
+  s.ring = el('circle',{cx:s.x,cy:s.y,r:38,fill:'none',stroke:'#d50000','stroke-width':3,visibility:'hidden'},g);
+  const l1=el('text',{x:s.x,y:s.y+34,'text-anchor':'middle',class:'lbl'},g); l1.textContent=s.label;
+  if(s.sub){ const l2=el('text',{x:s.x,y:s.y+48,'text-anchor':'middle',class:'sub'},g); l2.textContent=s.sub; }
+}
+
+// footer note (like "All subnet masks are /24")
+const fn=el('text',{x:750,y:960,'text-anchor':'middle',class:'edge-note'});
+fn.textContent='Green INTERNET tag = local breakout · amber link = weak (low capacity or marginal signal) · hover any link for signal & capacity';
+
+
+// ── LIVE outage status (polls Supabase every 60s) ──
+const SB_URL = "https://eiwilltaxbavvskaugdv.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpd2lsbHRheGJhdnZza2F1Z2R2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3OTU0MDcsImV4cCI6MjA5MTM3MTQwN30.b-SQ6v9n4nyrj7aInoTUHUcKSTIPC59SRrAC0aV-j60";
+async function refreshStatus(){
+  const pill = document.getElementById('live');
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/map_site_status`,{
+      method:'POST', headers:{apikey:SB_KEY, Authorization:`Bearer ${SB_KEY}`, 'Content-Type':'application/json'}, body:'{}'});
+    if(!r.ok) throw new Error(r.status);
+    const rows = await r.json();
+    const down = new Set();
+    for(const row of rows){ const k = NAMEMAP[row.site_name]; if(k) down.add(k); }
+    // blind = any site whose mgmt path crosses a down site
+    const blind = new Set();
+    for(const k in SITES){
+      let cur = k, hops = 0;
+      while(cur && hops++ < 14){
+        if(down.has(cur) && cur !== k){ blind.add(k); break; }
+        cur = MGMT_PARENT[cur];
+      }
+    }
+    // paint mgmt edges + node rings
+    for(const k in SITES){
+      const e = MGMT_EDGE[k], s = SITES[k];
+      if(e){
+        if(down.has(k)){ e.setAttribute('stroke','#d50000'); e.setAttribute('stroke-width','3.5'); e.removeAttribute('stroke-dasharray'); }
+        else if(blind.has(k)){ e.setAttribute('stroke','#e57373'); e.setAttribute('stroke-width','2.5'); e.setAttribute('stroke-dasharray','4 4'); }
+        else { e.setAttribute('stroke','#6a1b9a'); e.setAttribute('stroke-width','2'); e.setAttribute('stroke-dasharray','7 4'); }
+      }
+      if(s.ring) s.ring.setAttribute('visibility', down.has(k) ? 'visible' : 'hidden');
+    }
+    const now = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/Jamaica'});
+    if(down.size){
+      pill.style.background='#d50000'; pill.style.color='#fff';
+      pill.textContent = `● ${down.size} site${down.size>1?'s':''} in outage · ${now}`;
+      if(blind.size) pill.textContent += ` · ${blind.size} blind downstream`;
+    } else {
+      pill.style.background='#2e7d32'; pill.style.color='#fff';
+      pill.textContent = `● all sites reporting · ${now}`;
+    }
+  }catch(err){
+    pill.style.background='#e0e0e0'; pill.style.color='#444';
+    pill.textContent = 'status unavailable';
+  }
+}
+refreshStatus();
+setInterval(refreshStatus, 60000);
+
+function setView(v){
+  gPhys.setAttribute('visibility', v==='phys'?'visible':'hidden');
+  gInet.setAttribute('visibility', v==='inet'?'visible':'hidden');
+  gMgmt.setAttribute('visibility', v==='mgmt'?'visible':'hidden');
+  document.getElementById('b-phys').className='vbtn'+(v==='phys'?' active':'');
+  document.getElementById('b-inet').className='vbtn'+(v==='inet'?' active inet':'');
+  document.getElementById('b-mgmt').className='vbtn'+(v==='mgmt'?' active mgmt':'');
+}
+</script>
+</body>
+</html>
